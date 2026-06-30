@@ -7,6 +7,11 @@ A Chrome extension that displays your Suno AI credits in the sidebar navigation 
 - **Chrome Web Store**: Store page will be released once the page is live
 - **Firefox Support**: Will come later (Firefox manifest V3 support pending)
 
+<img width="298" height="234" alt="opera_wCSLRDgCbj" src="https://github.com/user-attachments/assets/6f2bcec0-e0f0-452b-8d9d-49620fcb8cd3" />
+
+<img width="208" height="195" alt="opera_g0wuYGPTUu" src="https://github.com/user-attachments/assets/f5494edf-38c3-4eb6-aea1-d971bd6bd853" />
+
+
 ## Features
 - Shows current credit balance in Suno's sidebar navigation
 - Displays monthly usage with progress bar
