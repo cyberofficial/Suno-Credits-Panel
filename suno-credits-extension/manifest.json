@@ -27,6 +27,12 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Suno Credits"
+    "default_title": "Suno Credits",
+    "default_icon": {
+      "128": "Icon.png"
+    }
+  },
+  "icons": {
+    "128": "Icon.png"
   }
 }
