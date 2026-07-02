@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Suno Credits Display",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Displays your Suno AI credits in the sidebar navigation and extension popup",
   "permissions": [
     "storage",
