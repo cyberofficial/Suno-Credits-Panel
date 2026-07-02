@@ -4,7 +4,7 @@
 A Chrome extension that displays your Suno AI credits in the sidebar navigation and extension popup, with automatic updates every minute to prevent API abuse.
 
 ## Current Status
-- **Chrome Web Store**: Store page will be released once the page is live
+- **Chrome Web Store**: ✅ **Live** - [Install from Chrome Web Store](https://chromewebstore.google.com/detail/suno-credits-display/dedkbafdfjaeodmhiaikfkbpojlfnfgn?authuser=0&hl=en)
 - **Firefox Support**: Will come later (Firefox manifest V3 support pending)
 
 <img width="298" height="234" alt="opera_wCSLRDgCbj" src="https://github.com/user-attachments/assets/6f2bcec0-e0f0-452b-8d9d-49620fcb8cd3" />
@@ -21,6 +21,11 @@ A Chrome extension that displays your Suno AI credits in the sidebar navigation 
 - Efficient caching to minimize API calls
 
 ## Installation
+
+### Option 1: Chrome Web Store (Recommended)
+[Install from Chrome Web Store](https://chromewebstore.google.com/detail/suno-credits-display/dedkbafdfjaeodmhiaikfkbpojlfnfgn?authuser=0&hl=en)
+
+### Option 2: Developer Mode (Manual)
 1. Download or clone this repository
 2. Open Chrome and go to `chrome://extensions`
 3. Enable "Developer mode" in the top right
