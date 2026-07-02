@@ -14,7 +14,7 @@ A Chrome extension that displays your Suno AI credits in the sidebar navigation 
 
 ## Features
 - Shows current credit balance in Suno's sidebar navigation
-- Displays monthly usage with progress bar
+- Displays daily usage with progress bar
 - Shows subscription status (Free/Pro/Premier)
 - Extension popup with detailed credit information
 - Automatic updates every minute via background service worker
@@ -38,13 +38,12 @@ A Chrome extension that displays your Suno AI credits in the sidebar navigation 
 2. Fetches credentials from `https://studio-api-prod.suno.com/api/billing/info/` using session cookie
 3. Credits data stored in `chrome.storage.local`
 4. Content script and popup retrieve data from storage via message passing
-5. Sidebar display shows credits, monthly usage, and subscription status
+5. Sidebar display shows credits, daily usage, and subscription status
 
 ## Data Displayed
 - **Credits Left**: Your current available credit balance
 - **Total Credits**: Includes purchased top-up credits
-- **Monthly Usage**: Credits used this month / monthly limit
-- **Subscription Status**: Free, Pro, or Premier plan indicator
+- **Daily Usage**: Credits left for the day
 - **Last Updated**: Timestamp of last refresh
 
 ## Host Permission Justification
@@ -58,7 +57,7 @@ The extension requires host permissions for two specific domains:
 
 **2. https://studio-api-prod.suno.com/***
 - Required to make authenticated requests to Suno's billing API endpoint
-- The API endpoint `https://studio-api-prod.suno.com/api/billing/info/` returns credit balance, monthly usage, and subscription information
+- The API endpoint `https://studio-api-prod.suno.com/api/billing/info/` returns credit balance, daily usage, and subscription information
 - This is the only API endpoint the extension communicates with
 
 Both permissions are strictly limited to only the domains necessary for the extension to function. No broader host permissions (like `<all_urls>`) are requested.

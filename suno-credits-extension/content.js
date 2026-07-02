@@ -86,8 +86,8 @@ function renderCredits(data) {
 
   const creditsLeft = data.credits_left || 0;
   const totalCredits = data.total_credits_left || 0;
-  const monthlyUsage = data.monthly_usage || 0;
-  const monthlyLimit = data.monthly_limit || 50;
+  const dailyUsage = data.daily_usage || 0;
+  const dailyLimit = data.daily_limit || 50;
   const isActive = data.is_active || false;
 
   // Format numbers with commas
@@ -115,13 +115,13 @@ function renderCredits(data) {
     `;
   }
 
-  // Monthly usage bar
-  const usagePercent = monthlyLimit > 0 ? Math.min(100, (monthlyUsage / monthlyLimit) * 100) : 0;
+  // Daily usage bar
+  const usagePercent = dailyLimit > 0 ? Math.min(100, (dailyUsage / dailyLimit) * 100) : 0;
   html += `
       <div style="font-size: 11px; color: var(--color-foreground-tertiary, #888);">
         <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-          <span>Monthly Usage</span>
-          <span>${formatNumber(monthlyUsage)} / ${formatNumber(monthlyLimit)}</span>
+          <span>Daily Usage</span>
+          <span>${formatNumber(dailyUsage)} / ${formatNumber(dailyLimit)}</span>
         </div>
         <div style="height: 4px; background: var(--color-border-secondary, rgba(255,255,255,0.1)); border-radius: 2px; overflow: hidden;">
           <div style="width: ${usagePercent}%; height: 100%; background: ${isActive ? 'var(--color-primary, #fd429c)' : 'var(--color-foreground-tertiary, #888)'}; border-radius: 2px; transition: width 0.3s ease;"></div>

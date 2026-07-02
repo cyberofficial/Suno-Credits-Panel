@@ -62,8 +62,8 @@ function renderCredits(data) {
 
   const creditsLeft = data.credits_left || 0;
   const totalCredits = data.total_credits_left || 0;
-  const monthlyUsage = data.monthly_usage || 0;
-  const monthlyLimit = data.monthly_limit || 50;
+  const dailyUsage = data.daily_usage || 0;
+  const dailyLimit = data.daily_limit || 50;
   const isActive = data.is_active || false;
 
   // Format numbers with commas
@@ -73,7 +73,7 @@ function renderCredits(data) {
   creditsEl.textContent = formatNumber(creditsLeft);
 
   // Display usage
-  usageEl.textContent = `Monthly usage: ${formatNumber(monthlyUsage)} / ${formatNumber(monthlyLimit)}`;
+  usageEl.textContent = `Daily usage: ${formatNumber(dailyUsage)} / ${formatNumber(dailyLimit)}`;
 
   // Add subscription indicator if applicable
   if (isActive) {

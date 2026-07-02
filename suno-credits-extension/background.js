@@ -64,8 +64,8 @@ async function fetchAndStoreCredits() {
       await storeCreditsData({
         credits_left: 0,
         total_credits_left: 0,
-        monthly_usage: 0,
-        monthly_limit: 50,
+        daily_usage: 0,
+        daily_limit: 50,
         is_active: false,
         subscription_type: false,
         error: 'Not logged in to Suno',
@@ -95,8 +95,8 @@ async function fetchAndStoreCredits() {
     const creditsData = {
       credits_left: data.credits || 0,
       total_credits_left: data.total_credits_left || 0,
-      monthly_usage: data.monthly_usage || 0,
-      monthly_limit: data.monthly_limit || 50,
+      daily_usage: data.daily_usage || 0,
+      daily_limit: data.daily_limit || 50,
       is_active: data.is_active || false,
       subscription_type: data.subscription_type || false,
       lastUpdated: Date.now()
@@ -132,8 +132,8 @@ async function getStoredCredits() {
   return result[STORAGE_KEY] || {
     credits_left: 0,
     total_credits_left: 0,
-    monthly_usage: 0,
-    monthly_limit: 50,
+    daily_usage: 0,
+    daily_limit: 50,
     is_active: false,
     subscription_type: false,
     error: 'No data yet',
