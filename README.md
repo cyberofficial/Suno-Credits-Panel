@@ -7,9 +7,10 @@ A Chrome extension that displays your Suno AI credits in the sidebar navigation 
 - **Chrome Web Store**: ✅ **Live** - [Install from Chrome Web Store](https://chromewebstore.google.com/detail/suno-credits-display/dedkbafdfjaeodmhiaikfkbpojlfnfgn?authuser=0&hl=en)
 - **Firefox Support**: Will come later (Firefox manifest V3 support pending)
 
-<img width="298" height="234" alt="opera_wCSLRDgCbj" src="https://github.com/user-attachments/assets/6f2bcec0-e0f0-452b-8d9d-49620fcb8cd3" />
+<img width="298" height="193" alt="opera_vY91otKOef" src="https://github.com/user-attachments/assets/8a206f74-f8ad-49f0-8f1d-1a1d90efabe7" />
+<img width="179" height="121" alt="opera_MPs8Iwuzyv" src="https://github.com/user-attachments/assets/179472e8-6761-4099-8027-2583b0991a7d" />
 
-<img width="208" height="195" alt="opera_g0wuYGPTUu" src="https://github.com/user-attachments/assets/f5494edf-38c3-4eb6-aea1-d971bd6bd853" />
+
 
 
 ## Features
