@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Suno Credits Display",
-  "version": "1.0.1",
-  "description": "Displays your Suno AI credits in the sidebar navigation and extension popup",
+  "version": "1.2.0",
+  "description": "Displays your Suno daily credits (and backup balance) in the sidebar navigation and extension popup. Live-updates every minute.",
   "permissions": [
     "storage",
     "cookies",

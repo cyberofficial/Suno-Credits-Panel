@@ -1,8 +1,11 @@
-// Content script - displays Suno credits in the sidebar navigation
-// Gets cached data from background service worker (updated every minute)
+// Content script - displays Suno credits in the sidebar navigation.
+// Gets cached data from the background service worker (refreshed every minute,
+// plus throttled on-demand fetches) and re-renders on SPA navigations.
 
 let creditsContainer = null;
-let observer = null;
+let lastUrl = location.href;
+let renderInFlight = false;
+let firstRenderDone = false; // fade-in animation only on the initial page-load render
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
@@ -12,193 +15,219 @@ if (document.readyState === 'loading') {
 }
 
 function init() {
-  // Fetch and render initial credits
   fetchCreditsAndRender();
 
-  // Listen for updates from background service worker
+  // Live updates pushed by the background worker
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'CREDITS_UPDATED') {
       renderCredits(message.data);
     }
   });
 
-  // Watch for sidebar changes (navigation collapse/expand)
-  setupSidebarObserver();
+  // Re-insert if Suno's React re-render wipes our node
+  setupObserver();
+
+  // Re-render on SPA navigations (Suno is a Next.js SPA)
+  setupNavigationHooks();
+
+  // Poll for near-live updates; the background throttles real network fetches
+  setInterval(fetchCreditsAndRender, 20000);
+
+  // Initial render attempts while the sidebar is still mounting
+  setTimeout(fetchCreditsAndRender, 1000);
+  setTimeout(fetchCreditsAndRender, 3000);
+}
+
+// Find the sidebar nav container. Suno currently renders two
+// `div.flex.flex-col.gap-px.px-3` blocks; the top one holds the main
+// section links (Home/Explore/Create/Studio/Library).
+function findSidebarNav() {
+  const candidates = document.querySelectorAll('div.flex.flex-col.gap-px.px-3');
+  for (const c of candidates) {
+    if (c.querySelector('a[href="/create"], a[href="/discover"], a[href="/explore"]')) {
+      return c;
+    }
+  }
+  if (candidates.length > 0) return candidates[0];
+  // Fallbacks in case the class names change again
+  const nav = document.querySelector('aside nav, nav');
+  return nav || null;
 }
 
 async function fetchCreditsAndRender() {
+  if (renderInFlight) return; // avoid overlapping renders appending duplicates
+  renderInFlight = true;
   try {
     const response = await chrome.runtime.sendMessage({ type: 'GET_CREDITS' });
     renderCredits(response);
   } catch (error) {
     console.error('[Suno Credits] Failed to get credits:', error);
-    // Show error state in UI
-    showErrorState();
+    renderCredits(null);
+  } finally {
+    renderInFlight = false;
   }
 }
 
-function setupSidebarObserver() {
-  // Watch for the sidebar nav container
-  const sidebarNav = document.querySelector('div.flex.flex-col.gap-px.px-3');
-  if (sidebarNav) {
-    observer = new MutationObserver(() => {
-      // Re-render if our container was removed
-      if (creditsContainer && !document.contains(creditsContainer)) {
-        creditsContainer = null;
-        fetchCreditsAndRender();
-      }
-    });
-    observer.observe(sidebarNav, { childList: true, subtree: true });
+function setupObserver() {
+  if (!document.body) {
+    setTimeout(setupObserver, 500);
+    return;
+  }
+  const observer = new MutationObserver(() => {
+    if (creditsContainer && !document.contains(creditsContainer)) {
+      creditsContainer = null;
+      fetchCreditsAndRender();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+function setupNavigationHooks() {
+  const wrap = (type) => {
+    const orig = history[type];
+    if (typeof orig !== 'function') return;
+    history[type] = function (...args) {
+      const result = orig.apply(this, args);
+      setTimeout(fetchCreditsAndRender, 300);
+      return result;
+    };
+  };
+  wrap('pushState');
+  wrap('replaceState');
+  window.addEventListener('popstate', () => setTimeout(fetchCreditsAndRender, 300));
+  // URL watcher as a catch-all for client-side routing
+  setInterval(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      fetchCreditsAndRender();
+    }
+  }, 1000);
+}
+
+function formatNumber(num) {
+  return Number(num || 0).toLocaleString();
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+// Insert the credits card after the last top-level nav link.
+// IMPORTANT: only consider *direct child* anchors (`:scope > a`). Using
+// querySelectorAll('a[href]') picks up anchors nested inside the profile
+// split-button, whose nextSibling is NOT a child of the sidebar container -
+// that made insertBefore throw NotFoundError.
+function insertContainer(sidebarNav) {
+  const directLinks = sidebarNav.querySelectorAll(':scope > a[href]');
+  const lastLink = directLinks.length > 0 ? directLinks[directLinks.length - 1] : null;
+  try {
+    if (lastLink) {
+      lastLink.after(creditsContainer);
+      return;
+    }
+  } catch (e) {
+    // fall through to append
+  }
+  try {
+    sidebarNav.appendChild(creditsContainer);
+  } catch (e) {
+    console.error('[Suno Credits] Failed to insert credits container:', e);
   }
 }
 
 function renderCredits(data) {
-  // Find the sidebar navigation container
-  const sidebarNav = document.querySelector('div.flex.flex-col.gap-px.px-3');
+  const sidebarNav = findSidebarNav();
   if (!sidebarNav) {
-    // Retry after a short delay if sidebar not ready yet
+    // Sidebar not mounted yet - retry shortly
     setTimeout(() => renderCredits(data), 500);
     return;
   }
 
-  // Remove existing credits container if present
-  if (creditsContainer && creditsContainer.parentNode) {
-    creditsContainer.parentNode.removeChild(creditsContainer);
-  }
+  // Remove any existing containers (tracked or orphaned duplicates)
+  document.querySelectorAll('.suno-credits-display').forEach(n => n.remove());
+  creditsContainer = null;
 
-  // Check for error state
-  if (data.error && (!data.credits_left && data.credits_left !== 0)) {
-    showErrorState(sidebarNav, data.error);
+  // Error state (no data at all)
+  if (!data || (data.error && data.daily_credits_left === undefined && data.credits_left === undefined)) {
+    showErrorState(sidebarNav, (data && data.error) || 'Failed to load credits');
     return;
   }
 
-  // Create credits display element matching the sidebar button style
-  creditsContainer = document.createElement('div');
-  creditsContainer.className = 'suno-credits-display';
-  creditsContainer.style.cssText = `
-    margin-top: 8px;
-    padding: 8px 12px;
-    background: var(--color-background-glass-dense, rgba(0,0,0,0.1));
-    border-radius: 8px;
-    border: 1px solid var(--color-border-secondary, rgba(255,255,255,0.1));
-    font-family: inherit;
-  `;
+  const dailyLeft = Number(data.daily_credits_left !== undefined ? data.daily_credits_left : (data.credits_left || 0));
+  const usage = Number(data.daily_usage || 0);
+  const limit = Number(data.daily_limit || 0);
+  const backup = Number(data.backup_credits !== undefined ? data.backup_credits : (data.credits_left || 0));
+  const total = Number(data.total_credits_left || (backup + dailyLeft));
+  const isActive = !!data.is_active;
+  const isPastDue = !!data.is_past_due;
 
-  const creditsLeft = data.credits_left || 0;
-  const totalCredits = data.total_credits_left || 0;
-  const dailyUsage = data.daily_usage || 0;
-  const dailyLimit = data.daily_limit || 50;
-  const isActive = data.is_active || false;
-
-  // Format numbers with commas
-  const formatNumber = (num) => num.toLocaleString();
-
-  let html = `
-    <div style="display: flex; flex-direction: column; gap: 6px;">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <span style="font-size: 12px; color: var(--color-foreground-tertiary, #888); font-weight: 500;">
-          Credits
-        </span>
-        <span style="font-size: 14px; font-weight: 600; color: var(--color-foreground-primary, #fff);">
-          ${formatNumber(creditsLeft)}
-        </span>
-      </div>
-  `;
-
-  // Add total credits if different (includes top-ups)
-  if (totalCredits > creditsLeft) {
-    html += `
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--color-foreground-tertiary, #888);">
-        <span>Total (with top-ups)</span>
-        <span>${formatNumber(totalCredits)}</span>
-      </div>
-    `;
+  creditsContainer = el('div', 'suno-credits-display');
+  // Animate only the first render on page load; all later updates are instant
+  if (!firstRenderDone) {
+    creditsContainer.classList.add('sc-animate');
+    firstRenderDone = true;
   }
 
-  // Daily usage bar
-  const usagePercent = dailyLimit > 0 ? Math.min(100, (dailyUsage / dailyLimit) * 100) : 0;
-  html += `
-      <div style="font-size: 11px; color: var(--color-foreground-tertiary, #888);">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-          <span>Daily Usage</span>
-          <span>${formatNumber(dailyUsage)} / ${formatNumber(dailyLimit)}</span>
-        </div>
-        <div style="height: 4px; background: var(--color-border-secondary, rgba(255,255,255,0.1)); border-radius: 2px; overflow: hidden;">
-          <div style="width: ${usagePercent}%; height: 100%; background: ${isActive ? 'var(--color-primary, #fd429c)' : 'var(--color-foreground-tertiary, #888)'}; border-radius: 2px; transition: width 0.3s ease;"></div>
-        </div>
-      </div>
-  `;
+  const box = el('div', 'sc-box');
+
+  // Header row: label + big daily-credits number
+  const header = el('div', 'sc-row sc-header');
+  header.appendChild(el('span', 'sc-label', 'Daily credits'));
+  header.appendChild(el('span', 'sc-value sc-value-big', formatNumber(dailyLeft)));
+  box.appendChild(header);
+
+  // Daily usage progress bar
+  const usagePct = limit > 0 ? Math.min(100, (usage / limit) * 100) : 0;
+  const usageRow = el('div', 'sc-usage');
+  const usageTop = el('div', 'sc-row sc-usage-top');
+  usageTop.appendChild(el('span', 'sc-label', 'Daily usage'));
+  usageTop.appendChild(el('span', 'sc-label', `${formatNumber(usage)} / ${formatNumber(limit)}`));
+  const bar = el('div', 'sc-bar');
+  const fill = el('div', 'sc-bar-fill' + (isActive ? ' sc-active' : ''));
+  fill.style.width = usagePct + '%';
+  bar.appendChild(fill);
+  usageRow.appendChild(usageTop);
+  usageRow.appendChild(bar);
+  box.appendChild(usageRow);
+
+  // Backup balance (top-ups) - only show if non-zero
+  if (backup > 0) {
+    const backupRow = el('div', 'sc-row sc-sub');
+    backupRow.appendChild(el('span', 'sc-label', 'Backup balance'));
+    backupRow.appendChild(el('span', 'sc-label', formatNumber(backup)));
+    box.appendChild(backupRow);
+  }
+
+  // Total available
+  if (total > dailyLeft) {
+    const totalRow = el('div', 'sc-row sc-sub');
+    totalRow.appendChild(el('span', 'sc-label', 'Total available'));
+    totalRow.appendChild(el('span', 'sc-label', formatNumber(total)));
+    box.appendChild(totalRow);
+  }
+
+  // Subscription / status line
+  if (isPastDue) {
+    box.appendChild(el('div', 'sc-status sc-past-due', 'Payment past due'));
+  } else if (isActive) {
+    box.appendChild(el('div', 'sc-status sc-active', 'Subscription active'));
+  }
 
   // Last updated timestamp
   if (data.lastUpdated) {
-    const lastUpdated = new Date(data.lastUpdated).toLocaleTimeString();
-    html += `
-      <div style="font-size: 10px; color: var(--color-foreground-quaternary, #666); text-align: right;">
-        Updated: ${lastUpdated}
-      </div>
-    `;
+    const updated = el('div', 'sc-updated', 'Updated ' + new Date(data.lastUpdated).toLocaleTimeString());
+    box.appendChild(updated);
   }
 
-  html += '</div>';
-  creditsContainer.innerHTML = html;
-
-  // Insert after the navigation buttons (as the 6th child or at the end)
-  const navButtons = sidebarNav.querySelectorAll('a[href]');
-  if (navButtons.length > 0) {
-    // Insert after the last nav button
-    const lastButton = navButtons[navButtons.length - 1];
-    if (lastButton.nextSibling) {
-      sidebarNav.insertBefore(creditsContainer, lastButton.nextSibling);
-    } else {
-      sidebarNav.appendChild(creditsContainer);
-    }
-  } else {
-    sidebarNav.appendChild(creditsContainer);
-  }
+  creditsContainer.appendChild(box);
+  insertContainer(sidebarNav);
 }
 
-function showErrorState(sidebarNav, message = 'Failed to load credits') {
-  // Remove existing container
-  if (creditsContainer && creditsContainer.parentNode) {
-    creditsContainer.parentNode.removeChild(creditsContainer);
-  }
-
-  creditsContainer = document.createElement('div');
-  creditsContainer.className = 'suno-credits-display error-state';
-  creditsContainer.style.cssText = `
-    margin-top: 8px;
-    padding: 8px 12px;
-    background: var(--color-background-glass-dense, rgba(0,0,0,0.1));
-    border-radius: 8px;
-    border: 1px solid var(--color-border-secondary, rgba(255,255,255,0.1));
-    font-family: inherit;
-    color: var(--color-destructive, #ff6b6b);
-    font-size: 11px;
-    text-align: center;
-  `;
-  creditsContainer.textContent = message || 'Error loading credits';
-
-  // Insert after navigation buttons
-  const navButtons = sidebarNav.querySelectorAll('a[href]');
-  if (navButtons.length > 0) {
-    const lastButton = navButtons[navButtons.length - 1];
-    if (lastButton.nextSibling) {
-      sidebarNav.insertBefore(creditsContainer, lastButton.nextSibling);
-    } else {
-      sidebarNav.appendChild(creditsContainer);
-    }
-  } else {
-    sidebarNav.appendChild(creditsContainer);
-  }
+function showErrorState(sidebarNav, message) {
+  document.querySelectorAll('.suno-credits-display').forEach(n => n.remove());
+  creditsContainer = el('div', 'suno-credits-display suno-credits-error', message || 'Error loading credits');
+  insertContainer(sidebarNav);
 }
-
-// Handle sidebar collapse/expand
-document.addEventListener('click', (e) => {
-  // If sidebar toggle clicked, re-render after animation
-  if (e.target.closest('[aria-label*="sidebar"], [data-testid*="sidebar"], button[aria-expanded]')) {
-    setTimeout(() => fetchCreditsAndRender(), 300);
-  }
-});
-
-// Initial render attempt
-setTimeout(fetchCreditsAndRender, 1000);
